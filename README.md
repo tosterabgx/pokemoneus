@@ -32,3 +32,12 @@
 *That's it, it's pretty lightweight!*
 
 Also, I used **facade** and **state** patterns, so I hope to get a high grade :)
+
+## Bugs fixed:
+- Pokemons clipping through the borders of the window
+- Hitboxes of pokemons in the world being shifted to the right
+- The other trainer's damaged pokemons did not restored after re-entering the battle
+
+---
+## Screenshot(s)
+![Screenshot](main_menu.png)
