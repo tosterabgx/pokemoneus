@@ -4,13 +4,7 @@ from abc import ABC, abstractmethod
 import game.controllers as controllers
 import pygame
 from game.battle import Battle
-from game.config import (
-    BAR_HEIGHT,
-    BASE_POKEMON_SIZE,
-    POKEMONS_PER_TEAM,
-    SCREEN_HEIGHT,
-    SCREEN_WIDTH,
-)
+from game.config import *
 from game.misc import Button
 from game.pokemons import POKEMON_TYPES, Trainer
 
@@ -40,7 +34,9 @@ class MainMenuState(GameState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.title = "Pokemoneus"
+        self.title = "Pokemoneus!"
+
+        self.mascot = self.vm.load_image("raichu.png", (200, 200))
 
         button_w, button_h = 500, 70
         x_center = (SCREEN_WIDTH - button_w) // 2
@@ -94,13 +90,18 @@ class MainMenuState(GameState):
         pass
 
     def draw(self):
-        self.vm.clear_screen((30, 30, 30))
+        self.vm.clear_screen(COLOR_BG_MENU)
 
-        tw, th = self.vm.get_text_size(self.title, font_size=52)
+        tw, th = self.vm.get_text_size(self.title, font_size=130)
 
         self.vm.draw_text(
-            ((SCREEN_WIDTH - tw) // 2, 80), self.title, (220, 220, 255), font_size=52
+            ((SCREEN_WIDTH - tw - 150) // 2, 175),
+            self.title,
+            COLOR_TEXT_TITLE,
+            font_size=130,
         )
+
+        self.vm.draw_image(((SCREEN_WIDTH + tw - 100) // 2, 125), self.mascot)
         for btn in self.buttons:
             btn.draw()
 
@@ -148,7 +149,7 @@ class CollectingPokemonsState(GameState):
             self.game.box[i].y = 5 + 5 + BAR_HEIGHT + 2
 
     def draw(self):
-        self.vm.clear_screen((0, 166, 62))
+        self.vm.clear_screen(COLOR_WORLD_BG)
 
         for p in self.pokemons:
             p.draw(draw_hp_bar=False)
@@ -157,7 +158,7 @@ class CollectingPokemonsState(GameState):
             box_w = 7 + (BASE_POKEMON_SIZE[0] + 7) * len(self.game.box)
             box_h = 5 * 2 + BASE_POKEMON_SIZE[1] + (BAR_HEIGHT + 2) * 3
 
-            self.vm.draw_rectangle((5, 5), box_w, box_h, (255, 255, 255))
+            self.vm.draw_rectangle((5, 5), box_w, box_h, COLOR_PANEL)
             for p in self.game.box:
                 p.draw()
 
@@ -278,19 +279,19 @@ class BattleState(GameState):
         self._was_running = bool(self.battle.started)
 
     def _draw_winner_overlay(self):
-        self.vm.clear_screen((10, 12, 18))
+        self.vm.clear_screen(COLOR_OVERLAY_BG)
         if self.winner == "player":
             title = "You Win!"
             sub = "Press R to rematch • ESC to menu"
-            color = (120, 255, 140)
+            color = COLOR_WIN
         elif self.winner == "bot":
             title = "Bot Wins!"
             sub = "Press R to try again • ESC to menu"
-            color = (255, 120, 120)
+            color = COLOR_LOSE
         else:
             title = "Match paused"
             sub = "Press R to continue • ESC to menu"
-            color = (220, 220, 220)
+            color = COLOR_PAUSED
         tw, th = self.vm.get_text_size(title, font_size=64)
         self.vm.draw_text(
             ((SCREEN_WIDTH - tw) // 2, (SCREEN_HEIGHT - th) // 2 - 30),
@@ -302,7 +303,7 @@ class BattleState(GameState):
         self.vm.draw_text(
             ((SCREEN_WIDTH - sw) // 2, (SCREEN_HEIGHT - sh) // 2 + 40),
             sub,
-            (200, 200, 200),
+            COLOR_TEXT_SECONDARY,
             font_size=24,
         )
 
@@ -310,11 +311,11 @@ class BattleState(GameState):
         if self.winner is not None:
             self._draw_winner_overlay()
             return
-        self.vm.clear_screen((18, 26, 38))
+        self.vm.clear_screen(COLOR_BG_BATTLE)
         self.vm.draw_line(
             (SCREEN_WIDTH // 2, 0),
             (SCREEN_WIDTH // 2, SCREEN_HEIGHT),
-            (60, 80, 100),
+            COLOR_DIVIDER,
             2,
         )
         if self.battle.started:
@@ -326,14 +327,14 @@ class BattleState(GameState):
             d_rect = defender.image.get_rect(topleft=(defender.x, defender.y))
             if a_rect.midright[0] > d_rect.midleft[0]:
                 a_rect, d_rect = d_rect, a_rect
-            self.vm.draw_line(a_rect.midright, d_rect.midleft, (255, 0, 0), 3)
+            self.vm.draw_line(a_rect.midright, d_rect.midleft, COLOR_ATTACK_LINE, 3)
         self.vm.draw_text(
             (20, 20),
             f"T1 wins: {self.trainer1.wins}     T2 wins: {self.trainer2.wins}",
-            (255, 255, 255),
+            COLOR_TEXT_PRIMARY,
         )
         if not self.battle.started:
-            self.vm.draw_text((20, 50), "ESC = menu", (200, 200, 200), 20)
+            self.vm.draw_text((20, 50), "ESC = menu", COLOR_TEXT_SECONDARY, 20)
 
 
 class FpsStateState(GameState):
@@ -363,7 +364,7 @@ class FpsStateState(GameState):
             p.move()
 
     def draw(self):
-        self.vm.clear_screen((0, 166, 62))
+        self.vm.clear_screen(COLOR_WORLD_BG)
 
         for p in self.pokemons:
             p.draw(draw_hp_bar=False, draw_stats=False)

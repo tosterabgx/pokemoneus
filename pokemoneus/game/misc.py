@@ -1,4 +1,5 @@
 import pygame
+from game.config import COLOR_BUTTON_BG, COLOR_BUTTON_HOVER, COLOR_BUTTON_TEXT
 
 
 class Button:
@@ -10,10 +11,10 @@ class Button:
         text: str,
         on_click=None,
         font_size=32,
-        text_color_idle=(230, 230, 230),
+        text_color_idle=COLOR_BUTTON_TEXT,
         text_color_hover=(255, 255, 255),
-        bg_idle=(60, 60, 60),
-        bg_hover=(90, 90, 90),
+        bg_idle=COLOR_BUTTON_BG,
+        bg_hover=COLOR_BUTTON_HOVER,
     ):
         self.vm = vm
         self.rect = pygame.Rect(pos + size)
