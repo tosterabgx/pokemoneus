@@ -30,6 +30,23 @@ class VisualManager:
     ) -> None:
         pygame.draw.rect(self.screen, color, pygame.Rect(*pos, width, height))
 
+    def draw_bar(
+        self,
+        topleft: tuple[int, int],
+        width: int,
+        height: int,
+        hp: int,
+        max_hp: int = 100,
+    ):
+        hp = max(0, min(hp, max_hp))
+        ratio = 0 if max_hp <= 0 else hp / max_hp
+        fill_w = int(width * ratio)
+
+        self.draw_rectangle(topleft, width, height, (60, 60, 60))
+        fill_color = (255 - int(255 * ratio), int(255 * ratio), 0)
+        if fill_w > 0:
+            self.draw_rectangle(topleft, fill_w, height, fill_color)
+
     def draw_hp_bar(
         self,
         topleft: tuple[int, int],
@@ -86,6 +103,7 @@ class GameManager:
             "menu": states.MainMenuState(self),
             "collect": states.CollectingPokemonsState(self),
             "battle": states.BattleState(self),
+            "fps": states.FpsStateState(self),
         }
 
         self.state = "menu"

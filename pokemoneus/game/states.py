@@ -48,6 +48,9 @@ class MainMenuState(GameState):
 
         self.buttons = [
             Button(
+                self.vm, (10, 10), (20, 20), "FPS", on_click=self.fps_test, font_size=12
+            ),
+            Button(
                 self.vm,
                 (x_center, y_center + y_offset),
                 (button_w, button_h),
@@ -69,6 +72,9 @@ class MainMenuState(GameState):
                 on_click=self.quit_game,
             ),
         ]
+
+    def fps_test(self):
+        self.game.state = "fps"
 
     def collect_pokemons(self):
         self.game.state = "collect"
@@ -148,11 +154,14 @@ class CollectingPokemonsState(GameState):
 
         if self.game.box:
             box_w = 5 + (BASE_POKEMON_SIZE[0] + 5) * len(self.game.box)
-            box_h = BASE_POKEMON_SIZE[1] + 10
+            box_h = BASE_POKEMON_SIZE[1] + 20
 
             self.vm.draw_rectangle((5, 5), box_w, box_h, (255, 255, 255))
             for p in self.game.box:
                 p.draw()
+                self.vm.draw_hp_bar(
+                    (p.x, p.y + BASE_POKEMON_SIZE[1] + 2), BASE_POKEMON_SIZE[0], 6, p.hp
+                )
 
     def add_new_random_pokemon(self, pos):
         pokemon_type = random.choice(POKEMON_TYPES)
@@ -179,8 +188,8 @@ class BattleState(GameState):
     def _compute_center_layout(self):
         column_gap = 120
 
-        h1_list = [p.image.get_rect().height for p in self.battle.team1]
-        h2_list = [p.image.get_rect().height for p in self.battle.team2]
+        h1_list = [p.image.get_rect().height for p in self.battle.player_team]
+        h2_list = [p.image.get_rect().height for p in self.battle.bot_team]
         total_h1 = sum(h1_list) + self.spacing * max(len(h1_list) - 1, 0)
         total_h2 = sum(h2_list) + self.spacing * max(len(h2_list) - 1, 0)
         column_h = max(total_h1, total_h2)
@@ -193,13 +202,13 @@ class BattleState(GameState):
 
     def _position_teams(self):
         y = self.y_start
-        for p in self.battle.team1:
+        for p in self.battle.player_team:
             rect = p.image.get_rect()
             p.x, p.y = self.x1, y
             y += rect.height + self.spacing
 
         y = self.y_start
-        for p in self.battle.team2:
+        for p in self.battle.bot_team:
             rect = p.image.get_rect()
             p.x, p.y = self.x2, y
             y += rect.height + self.spacing
@@ -214,7 +223,7 @@ class BattleState(GameState):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.game.state = "menu"
-                self.battle.finish(1)
+                self.battle.finish(-1)
 
     def update(self):
         if self.battle.started:
@@ -231,7 +240,7 @@ class BattleState(GameState):
         )
 
         if self.battle.started:
-            for p in self.battle.team1 + self.battle.team2:
+            for p in self.battle.player_team + self.battle.bot_team:
                 p.draw()
 
                 self.vm.draw_hp_bar(
@@ -253,17 +262,52 @@ class BattleState(GameState):
                 3,
             )
 
-        # HUD
-        t1_wins = getattr(self.trainer1, "wins", 0)
-        t2_wins = getattr(self.trainer2, "wins", 0)
         self.vm.draw_text(
-            (10, 10), f"T1 wins: {t1_wins}   T2 wins: {t2_wins}", (255, 255, 255), 24
+            (20, 20),
+            f"T1 wins: {self.trainer1.wins}     T2 wins: {self.trainer2.wins}",
+            (255, 255, 255),
         )
 
         if not self.battle.started:
             self.vm.draw_text(
-                (10, 40),
+                (20, 50),
                 "ESC = menu",
                 (200, 200, 200),
                 20,
             )
+
+
+class FpsStateState(GameState):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.pokemons = []
+
+    def enter(self):
+        self.pokemons = []
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            self.game.state = "menu"
+        elif pygame.key.get_pressed()[pygame.K_SPACE]:
+            mouse_pos = pygame.mouse.get_pos()
+            self.add_new_random_pokemon(
+                (
+                    mouse_pos[0] - BASE_POKEMON_SIZE[0] // 2,
+                    mouse_pos[1] - BASE_POKEMON_SIZE[1] // 2,
+                )
+            )
+
+    def update(self):
+        for p in self.pokemons:
+            p.move()
+
+    def draw(self):
+        self.vm.clear_screen((0, 166, 62))
+
+        for p in self.pokemons:
+            p.draw()
+
+    def add_new_random_pokemon(self, pos):
+        pokemon_type = random.choice(POKEMON_TYPES)
+        self.pokemons.append(pokemon_type("Pokemon", pos, vm=self.vm))

@@ -1,6 +1,6 @@
 import pygame
 
-HIT_DELAY = 200
+HIT_DELAY = 100
 
 
 class Battle:
@@ -8,14 +8,14 @@ class Battle:
         self.n = n
         self.started = False
 
-    def start(self, trainer1, trainer2):
+    def start(self, player_trainer, bot_trainer):
         if self.started:
             return
 
-        self.trainer1 = trainer1
-        self.trainer2 = trainer2
-        self.team1 = trainer1.best_team(self.n)
-        self.team2 = trainer2.best_team(self.n)
+        self.player_trainer = player_trainer
+        self.bot_trainer = bot_trainer
+        self.player_team = player_trainer.best_team(self.n)
+        self.bot_team = bot_trainer.best_team(self.n)
 
         self.turn = 1
         self.started = True
@@ -30,18 +30,18 @@ class Battle:
             return
         self.last_update = now
 
-        if self.team1 and self.team2:
+        if self.bot_team and self.bot_team:
             if self.turn == 1:
-                self.team1[0].attack(self.team2[0])
-                if self.team2[0].hp <= 0:
-                    self.team2.pop(0)
-                    if not self.team2:
+                self.player_team[0].attack(self.bot_team[0])
+                if self.bot_team[0].hp <= 0:
+                    self.bot_team.pop(0)
+                    if not self.bot_team:
                         return self.finish(1)
             else:
-                self.team2[0].attack(self.team1[0])
-                if self.team1[0].hp <= 0:
-                    self.team1.pop(0)
-                    if not self.team1:
+                self.bot_team[0].attack(self.player_team[0])
+                if self.player_team[0].hp <= 0:
+                    self.player_team.pop(0)
+                    if not self.player_team:
                         return self.finish(2)
 
             self.turn = 2 if self.turn == 1 else 1
@@ -52,20 +52,21 @@ class Battle:
 
         self.started = False
 
-        for p in self.team1:
-            self.trainer1.add(p)
-        for p in self.team2:
-            self.trainer2.add(p)
+        for p in self.player_team:
+            self.player_trainer.add(p)
+        for p in self.bot_team:
+            self.bot_trainer.add(p)
+
         if result == 1:
-            self.trainer1.wins += 1
-        else:
-            self.trainer2.wins += 1
+            self.player_trainer.wins += 1
+        elif result == 2:
+            self.bot_trainer.wins += 1
 
     def current_pair(self):
-        if not self.started or not self.team1 or not self.team2:
+        if not self.started or not self.player_team or not self.bot_team:
             return None, None
 
         if self.turn == 1:
-            return self.team1[0], self.team2[0]
+            return self.player_team[0], self.bot_team[0]
         else:
-            return self.team2[0], self.team1[0]
+            return self.bot_team[0], self.player_team[0]
