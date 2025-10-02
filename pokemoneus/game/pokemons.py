@@ -1,7 +1,7 @@
 import math
 import random
 
-from game.config import BASE_POKEMON_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH
+from game.config import BASE_POKEMON_SIZE, MAX_ATK, MAX_DF, SCREEN_HEIGHT, SCREEN_WIDTH
 
 
 class Pokemon:
@@ -12,11 +12,11 @@ class Pokemon:
         vm,
         size: tuple[int, int] = BASE_POKEMON_SIZE,
         speed: int = 5,
-        atk: int = 10,
-        df: int = 5,
+        atk: int = -1,
+        df: int = -1,
         hp: int = 100,
     ) -> None:
-        self._visuals = vm
+        self.vm = vm
 
         self.name = name
         self.x, self.y = pos
@@ -26,9 +26,15 @@ class Pokemon:
         self.dx = int(speed * math.cos(angle))
         self.dy = int(speed * math.sin(angle))
 
-        self.image = self._visuals.load_image("error.png", size)
+        self.image = self.vm.load_image("error.png", size)
 
         self.hp = hp
+
+        if atk == -1:
+            atk = random.randint(1, MAX_ATK)
+        if df == -1:
+            df = random.randint(1, MAX_DF)
+
         self.atk, self.df = atk, df
 
     @property
@@ -64,6 +70,9 @@ class Pokemon:
         self._df = max(0, value)
 
     def move(self):
+        if self.hp == 0:
+            return
+
         if self.x <= 0 or self.x + self.size[0] >= SCREEN_WIDTH:
             self.dx *= -1
             self.dy += random.randint(-1, 1)
@@ -75,8 +84,34 @@ class Pokemon:
         self.x += self.dx
         self.y += self.dy
 
-    def draw(self):
-        self._visuals.draw_image((self.x, self.y), self.image)
+    def draw(self, draw_hp_bar: bool = True, draw_stats: bool = True):
+        if draw_hp_bar:
+            self.vm.draw_hp_bar(
+                (self.x, self.y - 8),
+                BASE_POKEMON_SIZE[0],
+                6,
+                self.hp,
+            )
+
+        self.vm.draw_image((self.x, self.y), self.image)
+
+        if draw_stats:
+            self.vm.draw_bar(
+                (self.x, self.y + BASE_POKEMON_SIZE[1] + 2),
+                BASE_POKEMON_SIZE[0],
+                6,
+                (255, 0, 0),
+                self.atk,
+                MAX_ATK,
+            )
+            self.vm.draw_bar(
+                (self.x, self.y + BASE_POKEMON_SIZE[1] + 10),
+                BASE_POKEMON_SIZE[0],
+                6,
+                (0, 0, 255),
+                self.df,
+                MAX_DF,
+            )
 
     def attack(self, opponent: "Pokemon") -> None:
         if self.hp > 0 and opponent.hp > 0:
@@ -87,7 +122,7 @@ class WaterPokemon(Pokemon):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.image = self._visuals.load_image("water_pokemon.png", self.size)
+        self.image = self.vm.load_image("water_pokemon.png", self.size)
 
     def attack(self, opponent: Pokemon) -> None:
         old_atk = self.atk
@@ -103,14 +138,14 @@ class FirePokemon(Pokemon):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.image = self._visuals.load_image("fire_pokemon.png", self.size)
+        self.image = self.vm.load_image("fire_pokemon.png", self.size)
 
 
 class GrassPokemon(Pokemon):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.image = self._visuals.load_image("grass_pokemon.png", self.size)
+        self.image = self.vm.load_image("grass_pokemon.png", self.size)
 
     def attack(self, opponent: Pokemon) -> None:
         old_df = opponent.df
@@ -126,7 +161,7 @@ class ElectricPokemon(Pokemon):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.image = self._visuals.load_image("electric_pokemon.png", self.size)
+        self.image = self.vm.load_image("electric_pokemon.png", self.size)
 
     def attack(self, opponent: Pokemon) -> None:
         old_df = opponent.df

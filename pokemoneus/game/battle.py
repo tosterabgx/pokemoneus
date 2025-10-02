@@ -1,6 +1,6 @@
 import pygame
 
-HIT_DELAY = 100
+HIT_DELAY = 200
 
 
 class Battle:
@@ -30,7 +30,7 @@ class Battle:
             return
         self.last_update = now
 
-        if self.bot_team and self.bot_team:
+        if self.player_team and self.bot_team:
             if self.turn == 1:
                 self.player_team[0].attack(self.bot_team[0])
                 if self.bot_team[0].hp <= 0:

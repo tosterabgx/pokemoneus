@@ -35,17 +35,17 @@ class VisualManager:
         topleft: tuple[int, int],
         width: int,
         height: int,
-        hp: int,
-        max_hp: int = 100,
+        color,
+        value: int,
+        max_value: int = 100,
     ):
-        hp = max(0, min(hp, max_hp))
-        ratio = 0 if max_hp <= 0 else hp / max_hp
+        value = max(0, min(value, max_value))
+        ratio = 0 if max_value <= 0 else value / max_value
         fill_w = int(width * ratio)
 
         self.draw_rectangle(topleft, width, height, (60, 60, 60))
-        fill_color = (255 - int(255 * ratio), int(255 * ratio), 0)
         if fill_w > 0:
-            self.draw_rectangle(topleft, fill_w, height, fill_color)
+            self.draw_rectangle(topleft, fill_w, height, color)
 
     def draw_hp_bar(
         self,
@@ -57,12 +57,9 @@ class VisualManager:
     ) -> None:
         hp = max(0, min(hp, max_hp))
         ratio = 0 if max_hp <= 0 else hp / max_hp
-        fill_w = int(width * ratio)
-
-        self.draw_rectangle(topleft, width, height, (60, 60, 60))
         fill_color = (255 - int(255 * ratio), int(255 * ratio), 0)
-        if fill_w > 0:
-            self.draw_rectangle(topleft, fill_w, height, fill_color)
+
+        self.draw_bar(topleft, width, height, fill_color, hp, max_hp)
 
     def load_image(self, filename: str, size: tuple):
         path = os.path.join("assets", "images", filename)
