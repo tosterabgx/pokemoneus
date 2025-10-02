@@ -169,31 +169,35 @@ class CollectingPokemonsState(GameState):
 class BattleState(GameState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.battle = Battle(POKEMONS_PER_TEAM)
         self.trainer1 = Trainer()
         self.trainer2 = Trainer()
-
         self.spacing = (BAR_HEIGHT + 2) * 3 + 2 + 20
+        self.winner = None
+        self._wins_snapshot = (0, 0)
+        self._was_running = False
+        self.paused = False
+
+    def _reset_enemy_box(self):
+        self.trainer2 = Trainer()
 
     def fill_boxes(self):
-        self.trainer1.box = self.game.box
-
+        self.trainer1.box = list(self.game.box)
+        if not hasattr(self.trainer2, "box"):
+            self.trainer2.box = []
+        self.trainer2.box = []
         while len(self.trainer2.box) < POKEMONS_PER_TEAM:
-            pokemon_type = random.choice(POKEMON_TYPES)
-            self.trainer2.add(pokemon_type("Pokemon", (0, 0), vm=self.vm))
+            P = random.choice(POKEMON_TYPES)
+            self.trainer2.add(P(f"T2_{len(self.trainer2.box)+1}", (0, 0), vm=self.vm))
 
     def _compute_center_layout(self):
         column_gap = 120
-
         h1_list = [p.image.get_rect().height for p in self.battle.player_team]
         h2_list = [p.image.get_rect().height for p in self.battle.bot_team]
         total_h1 = sum(h1_list) + self.spacing * max(len(h1_list) - 1, 0)
         total_h2 = sum(h2_list) + self.spacing * max(len(h2_list) - 1, 0)
         column_h = max(total_h1, total_h2)
-
         self.y_start = max(20, (SCREEN_HEIGHT - column_h) // 2)
-
         cx = SCREEN_WIDTH // 2
         self.x1 = cx - (column_gap // 2) - BASE_POKEMON_SIZE[0]
         self.x2 = cx + (column_gap // 2)
@@ -204,71 +208,132 @@ class BattleState(GameState):
             rect = p.image.get_rect()
             p.x, p.y = self.x1, y
             y += rect.height + self.spacing
-
         y = self.y_start
         for p in self.battle.bot_team:
             rect = p.image.get_rect()
             p.x, p.y = self.x2, y
             y += rect.height + self.spacing
 
-    def enter(self):
-        self.fill_boxes()
+    def _restart_battle(self):
+        self.winner = None
+        self.paused = False
+        self.battle = Battle(POKEMONS_PER_TEAM)
         self.battle.start(self.trainer1, self.trainer2)
+        self._wins_snapshot = (self.trainer1.wins, self.trainer2.wins)
         self._compute_center_layout()
         self._position_teams()
+        self._was_running = True
+
+    def enter(self):
+        self.winner = None
+        self.paused = False
+        self.fill_boxes()
+        self.battle = Battle(POKEMONS_PER_TEAM)
+        self.battle.start(self.trainer1, self.trainer2)
+        self._wins_snapshot = (self.trainer1.wins, self.trainer2.wins)
+        self._compute_center_layout()
+        self._position_teams()
+        self._was_running = True
 
     def handle_event(self, event):
+        if self.winner is not None:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self._reset_enemy_box()
+                    self.game.state = "menu"
+                elif event.key == pygame.K_r:
+                    if self.winner == "paused":
+                        self.winner = None
+                        self.paused = False
+                        if hasattr(self.battle, "last_update"):
+                            self.battle.last_update = pygame.time.get_ticks()
+                        self._was_running = True
+                    else:
+                        self._restart_battle()
+            return
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                self.game.state = "menu"
-                self.battle.finish(-1)
+                self.winner = "paused"
+                self.paused = True
+            elif event.key == pygame.K_r:
+                self._restart_battle()
 
     def update(self):
-        if self.battle.started:
+        if self.winner is not None or self.paused:
+            return
+        running_now = bool(self.battle.started)
+        if running_now:
             self.battle.update()
+        if self._was_running and not bool(self.battle.started):
+            t1_w, t2_w = self.trainer1.wins, self.trainer2.wins
+            p_w0, b_w0 = self._wins_snapshot
+            if t1_w > p_w0:
+                self.winner = "player"
+            elif t2_w > b_w0:
+                self.winner = "bot"
+            else:
+                if self.winner is None:
+                    self.winner = "paused"
+        self._was_running = bool(self.battle.started)
+
+    def _draw_winner_overlay(self):
+        self.vm.clear_screen((10, 12, 18))
+        if self.winner == "player":
+            title = "You Win!"
+            sub = "Press R to rematch • ESC to menu"
+            color = (120, 255, 140)
+        elif self.winner == "bot":
+            title = "Bot Wins!"
+            sub = "Press R to try again • ESC to menu"
+            color = (255, 120, 120)
+        else:
+            title = "Match paused"
+            sub = "Press R to continue • ESC to menu"
+            color = (220, 220, 220)
+        tw, th = self.vm.get_text_size(title, font_size=64)
+        self.vm.draw_text(
+            ((SCREEN_WIDTH - tw) // 2, (SCREEN_HEIGHT - th) // 2 - 30),
+            title,
+            color,
+            font_size=64,
+        )
+        sw, sh = self.vm.get_text_size(sub, font_size=24)
+        self.vm.draw_text(
+            ((SCREEN_WIDTH - sw) // 2, (SCREEN_HEIGHT - sh) // 2 + 40),
+            sub,
+            (200, 200, 200),
+            font_size=24,
+        )
 
     def draw(self):
+        if self.winner is not None:
+            self._draw_winner_overlay()
+            return
         self.vm.clear_screen((18, 26, 38))
-
         self.vm.draw_line(
             (SCREEN_WIDTH // 2, 0),
             (SCREEN_WIDTH // 2, SCREEN_HEIGHT),
             (60, 80, 100),
             2,
         )
-
         if self.battle.started:
             for p in self.battle.player_team + self.battle.bot_team:
                 p.draw()
-
         attacker, defender = self.battle.current_pair()
         if attacker and defender:
-            attacker_rect = attacker.image.get_rect(topleft=(attacker.x, attacker.y))
-            defender_rect = defender.image.get_rect(topleft=(defender.x, defender.y))
-
-            if attacker_rect.midright[0] > defender_rect.midleft[0]:
-                attacker_rect, defender_rect = defender_rect, attacker_rect
-
-            self.vm.draw_line(
-                attacker_rect.midright,
-                defender_rect.midleft,
-                (255, 0, 0),
-                3,
-            )
-
+            a_rect = attacker.image.get_rect(topleft=(attacker.x, attacker.y))
+            d_rect = defender.image.get_rect(topleft=(defender.x, defender.y))
+            if a_rect.midright[0] > d_rect.midleft[0]:
+                a_rect, d_rect = d_rect, a_rect
+            self.vm.draw_line(a_rect.midright, d_rect.midleft, (255, 0, 0), 3)
         self.vm.draw_text(
             (20, 20),
             f"T1 wins: {self.trainer1.wins}     T2 wins: {self.trainer2.wins}",
             (255, 255, 255),
         )
-
         if not self.battle.started:
-            self.vm.draw_text(
-                (20, 50),
-                "ESC = menu",
-                (200, 200, 200),
-                20,
-            )
+            self.vm.draw_text((20, 50), "ESC = menu", (200, 200, 200), 20)
 
 
 class FpsStateState(GameState):
