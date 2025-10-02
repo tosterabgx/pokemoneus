@@ -5,7 +5,7 @@
 
 > A school project dedicated to OOP and design patterns
 
-### Installation & Usage
+## Installation & Usage
 
 1. Clone the repo
    ```sh
@@ -25,7 +25,7 @@
    python main.py
    ```
 
-### Technologies Used
+## Technologies Used
 ![Python](https://img.shields.io/badge/Python-FFD43B?style=for-the-badge&logo=python&logoColor=blue)
 ![Markdown](https://img.shields.io/badge/Markdown-000000?style=for-the-badge&logo=markdown&logoColor=white)
 
