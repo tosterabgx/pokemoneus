@@ -215,16 +215,6 @@ class BattleState(GameState):
             p.x, p.y = self.x2, y
             y += rect.height + self.spacing
 
-    def _restart_battle(self):
-        self.winner = None
-        self.paused = False
-        self.battle = Battle(POKEMONS_PER_TEAM)
-        self.battle.start(self.trainer1, self.trainer2)
-        self._wins_snapshot = (self.trainer1.wins, self.trainer2.wins)
-        self._compute_center_layout()
-        self._position_teams()
-        self._was_running = True
-
     def enter(self):
         self.winner = None
         self.paused = False
@@ -242,23 +232,19 @@ class BattleState(GameState):
                 if event.key == pygame.K_ESCAPE:
                     self._reset_enemy_box()
                     self.game.state = "menu"
-                elif event.key == pygame.K_r:
+                elif event.key == pygame.K_SPACE:
                     if self.winner == "paused":
                         self.winner = None
                         self.paused = False
                         if hasattr(self.battle, "last_update"):
                             self.battle.last_update = pygame.time.get_ticks()
                         self._was_running = True
-                    else:
-                        self._restart_battle()
             return
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.winner = "paused"
                 self.paused = True
-            elif event.key == pygame.K_r:
-                self._restart_battle()
 
     def update(self):
         if self.winner is not None or self.paused:
@@ -282,15 +268,15 @@ class BattleState(GameState):
         self.vm.clear_screen(COLOR_OVERLAY_BG)
         if self.winner == "player":
             title = "You Win!"
-            sub = "Press R to rematch • ESC to menu"
+            sub = "ESC to menu"
             color = COLOR_WIN
         elif self.winner == "bot":
             title = "Bot Wins!"
-            sub = "Press R to try again • ESC to menu"
+            sub = "ESC to menu"
             color = COLOR_LOSE
         else:
             title = "Match paused"
-            sub = "Press R to continue • ESC to menu"
+            sub = "Press Space to continue • ESC to menu"
             color = COLOR_PAUSED
         tw, th = self.vm.get_text_size(title, font_size=64)
         self.vm.draw_text(
@@ -340,7 +326,6 @@ class BattleState(GameState):
 class FpsStateState(GameState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.pokemons = []
 
     def enter(self):
@@ -350,24 +335,56 @@ class FpsStateState(GameState):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             self.game.state = "menu"
 
-        elif pygame.key.get_pressed()[pygame.K_SPACE]:
-            mouse_pos = pygame.mouse.get_pos()
-            self.add_new_random_pokemon(
-                (
-                    mouse_pos[0] - BASE_POKEMON_SIZE[0] // 2,
-                    mouse_pos[1] - BASE_POKEMON_SIZE[1] // 2,
-                )
-            )
-
     def update(self):
+        # MOVED HERE INSTEAD OF handle_event BECAUSE IT NEEDS TO BE CHECKED ONLY ONCE EACH LOOP ITERATION
+        if pygame.key.get_pressed()[pygame.K_SPACE]:
+            mouse_pos = pygame.mouse.get_pos()
+            for _ in range(10):
+                self.add_new_random_pokemon(
+                    (
+                        mouse_pos[0] - BASE_POKEMON_SIZE[0] // 2,
+                        mouse_pos[1] - BASE_POKEMON_SIZE[1] // 2,
+                    )
+                )
+
         for p in self.pokemons:
             p.move()
 
     def draw(self):
         self.vm.clear_screen(COLOR_WORLD_BG)
-
         for p in self.pokemons:
             p.draw(draw_hp_bar=False, draw_stats=False)
+
+        counter_text = f"Pokemons: {len(self.pokemons)}"
+        tw, th = self.vm.get_text_size(counter_text, font_size=20)
+        pad = 6
+        bg_rect = pygame.Rect(8, 8, tw + pad * 2, th + pad * 2)
+        self.vm.draw_rectangle(
+            bg_rect.topleft, bg_rect.width, bg_rect.height, COLOR_PANEL
+        )
+        self.vm.draw_text(
+            (bg_rect.x + pad, bg_rect.y + pad), counter_text, COLOR_TEXT_PRIMARY, 20
+        )
+
+        fps = int(self.vm.clock.get_fps())
+        fps_text = f"FPS: {fps}"
+        fw, fh = self.vm.get_text_size(fps_text, font_size=20)
+        fps_bg = pygame.Rect(
+            SCREEN_WIDTH - fw - pad * 2 - 10, 8, fw + pad * 2, fh + pad * 2
+        )
+        self.vm.draw_rectangle(fps_bg.topleft, fps_bg.width, fps_bg.height, COLOR_PANEL)
+        self.vm.draw_text(
+            (fps_bg.x + pad, fps_bg.y + pad), fps_text, COLOR_TEXT_PRIMARY, 20
+        )
+
+        msg = "Press SPACE to spawn"
+        mw, mh = self.vm.get_text_size(msg, font_size=20)
+        self.vm.draw_text(
+            ((SCREEN_WIDTH - mw) // 2, SCREEN_HEIGHT - mh - 16),
+            msg,
+            COLOR_TEXT_SECONDARY,
+            20,
+        )
 
     def add_new_random_pokemon(self, pos):
         pokemon_type = random.choice(POKEMON_TYPES)
