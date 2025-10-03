@@ -41,3 +41,9 @@ Also, I used **facade** and **state** patterns, so I hope to get a high grade :)
 ---
 ## Screenshot(s)
 ![Screenshot](main_menu.png)
+
+## Results
+> [!NOTE]
+> Also checkout pokemoneus.pdf! Those were my slides for the presentation.
+
+**The grade I got: TBD**
