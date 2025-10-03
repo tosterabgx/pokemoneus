@@ -18,15 +18,15 @@ class GameState(ABC):
         pass
 
     @abstractmethod
-    def handle_event(self, event):
+    def handle_event(self, event: pygame.event.Event):
         pass
 
     @abstractmethod
-    def update(self, dt):
+    def update(self):
         pass
 
     @abstractmethod
-    def draw(self, vm):
+    def draw(self):
         pass
 
 
