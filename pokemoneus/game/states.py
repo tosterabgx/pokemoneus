@@ -6,7 +6,7 @@ import pygame
 from game.battle import Battle
 from game.config import *
 from game.misc import Button
-from game.pokemons import POKEMON_TYPES, Trainer
+from game.pokemons import POKEMON_TYPES, HardTrainer, MediumTrainer, Trainer
 
 
 class GameState(ABC):
@@ -178,18 +178,31 @@ class BattleState(GameState):
         self._wins_snapshot = (0, 0)
         self._was_running = False
         self.paused = False
+        self.difficulty = None
 
     def _reset_enemy_box(self):
-        self.trainer2 = Trainer()
+        self.trainer2.box = []
+
+    def _set_bot_by_difficulty(self):
+        old_wins = self.trainer2.wins
+        if self.difficulty == "easy":
+            self.trainer2 = Trainer()
+        elif self.difficulty == "medium":
+            self.trainer2 = MediumTrainer()
+        elif self.difficulty == "hard":
+            self.trainer2 = HardTrainer()
+
+        self.trainer2.wins = old_wins
 
     def fill_boxes(self):
         self.trainer1.box = list(self.game.box)
-        if not hasattr(self.trainer2, "box"):
-            self.trainer2.box = []
+
         self.trainer2.box = []
-        while len(self.trainer2.box) < POKEMONS_PER_TEAM:
+        while len(self.trainer2.box) < 30:
             P = random.choice(POKEMON_TYPES)
-            self.trainer2.add(P(f"T2_{len(self.trainer2.box)+1}", (0, 0), vm=self.vm))
+            self.trainer2.add(
+                P(f"T2_{len(self.trainer2.box)+1}", (0, 0), is_bot=True, vm=self.vm)
+            )
 
     def _compute_center_layout(self):
         column_gap = 120
@@ -218,15 +231,36 @@ class BattleState(GameState):
     def enter(self):
         self.winner = None
         self.paused = False
+        self.difficulty = None
+        self._wins_snapshot = (self.trainer1.wins, self.trainer2.wins)
+        self._was_running = False
+
+    def _start_after_difficulty(self):
+        self._set_bot_by_difficulty()
         self.fill_boxes()
         self.battle = Battle(POKEMONS_PER_TEAM)
         self.battle.start(self.trainer1, self.trainer2)
-        self._wins_snapshot = (self.trainer1.wins, self.trainer2.wins)
         self._compute_center_layout()
         self._position_teams()
         self._was_running = True
 
     def handle_event(self, event):
+        if self.difficulty is None:
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_1, pygame.K_e):
+                    self.difficulty = "easy"
+                    self._start_after_difficulty()
+                elif event.key in (pygame.K_2, pygame.K_m):
+                    self.difficulty = "medium"
+                    self._start_after_difficulty()
+                elif event.key in (pygame.K_3, pygame.K_h):
+                    self.difficulty = "hard"
+                    self._start_after_difficulty()
+                elif event.key == pygame.K_ESCAPE:
+                    self._reset_enemy_box()
+                    self.game.state = "menu"
+            return
+
         if self.winner is not None:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -236,8 +270,7 @@ class BattleState(GameState):
                     if self.winner == "paused":
                         self.winner = None
                         self.paused = False
-                        if hasattr(self.battle, "last_update"):
-                            self.battle.last_update = pygame.time.get_ticks()
+                        self.battle.last_update = pygame.time.get_ticks()
                         self._was_running = True
             return
 
@@ -247,6 +280,8 @@ class BattleState(GameState):
                 self.paused = True
 
     def update(self):
+        if self.difficulty is None:
+            return
         if self.winner is not None or self.paused:
             return
         running_now = bool(self.battle.started)
@@ -264,6 +299,25 @@ class BattleState(GameState):
                     self.winner = "paused"
         self._was_running = bool(self.battle.started)
 
+    def _draw_difficulty_overlay(self):
+        self.vm.clear_screen(COLOR_OVERLAY_BG)
+        title = "Choose Difficulty"
+        opt = "1) Easy    2) Medium    3) Hard"
+        tw, th = self.vm.get_text_size(title, font_size=64)
+        self.vm.draw_text(
+            ((SCREEN_WIDTH - tw) // 2, (SCREEN_HEIGHT - th) // 2 - 30),
+            title,
+            COLOR_TEXT_TITLE,
+            64,
+        )
+        ow, oh = self.vm.get_text_size(opt, font_size=28)
+        self.vm.draw_text(
+            ((SCREEN_WIDTH - ow) // 2, (SCREEN_HEIGHT - oh) // 2 + 40),
+            opt,
+            COLOR_TEXT_PRIMARY,
+            28,
+        )
+
     def _draw_winner_overlay(self):
         self.vm.clear_screen(COLOR_OVERLAY_BG)
         if self.winner == "player":
@@ -280,30 +334,51 @@ class BattleState(GameState):
             color = COLOR_PAUSED
         tw, th = self.vm.get_text_size(title, font_size=64)
         self.vm.draw_text(
-            ((SCREEN_WIDTH - tw) // 2, (SCREEN_HEIGHT - th) // 2 - 30),
-            title,
-            color,
-            font_size=64,
+            ((SCREEN_WIDTH - tw) // 2, (SCREEN_HEIGHT - th) // 2 - 30), title, color, 64
         )
         sw, sh = self.vm.get_text_size(sub, font_size=24)
         self.vm.draw_text(
             ((SCREEN_WIDTH - sw) // 2, (SCREEN_HEIGHT - sh) // 2 + 40),
             sub,
             COLOR_TEXT_SECONDARY,
-            font_size=24,
+            24,
         )
 
     def draw(self):
+        if self.difficulty is None:
+            self._draw_difficulty_overlay()
+            return
         if self.winner is not None:
             self._draw_winner_overlay()
             return
         self.vm.clear_screen(COLOR_BG_BATTLE)
         self.vm.draw_line(
-            (SCREEN_WIDTH // 2, 0),
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT),
-            COLOR_DIVIDER,
-            2,
+            (SCREEN_WIDTH // 2, 0), (SCREEN_WIDTH // 2, SCREEN_HEIGHT), COLOR_DIVIDER, 2
         )
+
+        you_text = "You"
+        bot_text = f"{self.difficulty.capitalize()} Bot"
+
+        yw, yh = self.vm.get_text_size(you_text, font_size=32)
+        bw, bh = self.vm.get_text_size(bot_text, font_size=32)
+
+        self.vm.draw_text(
+            ((SCREEN_WIDTH // 2 - yw) // 2, SCREEN_HEIGHT // 2 - yh // 2),
+            you_text,
+            COLOR_TEXT_PRIMARY,
+            font_size=32,
+        )
+
+        self.vm.draw_text(
+            (
+                SCREEN_WIDTH // 2 + (SCREEN_WIDTH // 2 - bw) // 2,
+                SCREEN_HEIGHT // 2 - bh // 2,
+            ),
+            bot_text,
+            COLOR_TEXT_PRIMARY,
+            font_size=32,
+        )
+
         if self.battle.started:
             for p in self.battle.player_team + self.battle.bot_team:
                 p.draw()
@@ -316,7 +391,7 @@ class BattleState(GameState):
             self.vm.draw_line(a_rect.midright, d_rect.midleft, COLOR_ATTACK_LINE, 3)
         self.vm.draw_text(
             (20, 20),
-            f"T1 wins: {self.trainer1.wins}     T2 wins: {self.trainer2.wins}",
+            f"Player wins: {self.trainer1.wins}     Bot wins: {self.trainer2.wins}",
             COLOR_TEXT_PRIMARY,
         )
         if not self.battle.started:

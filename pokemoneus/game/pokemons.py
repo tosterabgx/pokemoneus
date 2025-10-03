@@ -15,6 +15,7 @@ class Pokemon:
         atk: int = -1,
         df: int = -1,
         hp: int = 100,
+        is_bot: bool = False,
     ) -> None:
         self.vm = vm
 
@@ -30,10 +31,15 @@ class Pokemon:
 
         self.hp = hp
 
+        _max_atk, _max_df = MAX_ATK, MAX_DF
+        if is_bot:
+            _max_atk *= 0.85
+            _max_df *= 0.85
+
         if atk == -1:
-            atk = random.randint(1, MAX_ATK)
+            atk = random.randint(1, int(_max_atk))
         if df == -1:
-            df = random.randint(1, MAX_DF)
+            df = random.randint(1, int(_max_df))
 
         self.atk, self.df = atk, df
 
@@ -187,5 +193,40 @@ class Trainer:
         return team
 
 
+class MediumTrainer(Trainer):
+    def best_team(self, n):
+        sorted_box = sorted(
+            self.box, key=lambda pokemon: pokemon.atk + pokemon.df, reverse=True
+        )
+        best_team = sorted_box[:n]
+        self.box = sorted_box[n:]
+        return best_team
+
+
+class HardTrainer(Trainer):
+    def sort_pokemons(self) -> None:
+        self.box.sort(key=lambda x: (x.atk + x.df, x.atk, x.df), reverse=True)
+
+    def best_team(self, n: int) -> list:
+        self.sort_pokemons()
+
+        non_fire_pokemons = []
+        fire_pokemons = []
+
+        for p in self.box:
+            if "fire" in type(p).__name__.lower():
+                fire_pokemons.append(p)
+            else:
+                non_fire_pokemons.append(p)
+
+        team = non_fire_pokemons[:n]
+
+        while len(team) < n:
+            team.append(fire_pokemons[0])
+            del fire_pokemons[0]
+
+        self.box = [pokemon for pokemon in self.box if pokemon not in team]
+        return team
+
+
 POKEMON_TYPES = (ElectricPokemon, FirePokemon, GrassPokemon, WaterPokemon)
-# POKEMON_TYPES = (Pokemon,)
