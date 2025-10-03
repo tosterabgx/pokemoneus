@@ -2,6 +2,8 @@ import pygame
 
 HIT_DELAY = 200
 
+# I inserted this code as it was provided from teacher
+
 
 class Battle:
     def __init__(self, n):
